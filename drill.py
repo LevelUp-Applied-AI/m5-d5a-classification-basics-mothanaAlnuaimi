@@ -27,8 +27,36 @@ def split_data(df, target_col="churned", test_size=0.2, random_state=42):
     Returns:
         Tuple of (X_train, X_test, y_train, y_test).
     """
-    # TODO: Separate features (X) and target (y), then split with stratification
-    pass
+    X = df.drop(columns=[target_col])
+    y = df[target_col]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=y
+    )
+
+    # Verify split sizes
+    total_rows = len(df)
+    expected_test_size = int(round(total_rows * test_size))
+    expected_train_size = total_rows - expected_test_size
+
+    assert len(X_train) == len(y_train), "X_train and y_train sizes do not match."
+    assert len(X_test) == len(y_test), "X_test and y_test sizes do not match."
+    assert len(X_train) == expected_train_size, "Training set size is incorrect."
+    assert len(X_test) == expected_test_size, "Test set size is incorrect."
+
+    # Verify class distribution is preserved within 2 percentage points
+    original_rate = y.mean()
+    train_rate = y_train.mean()
+    test_rate = y_test.mean()
+
+    assert abs(train_rate - original_rate) <= 0.02, "Train churn rate differs too much."
+    assert abs(test_rate - original_rate) <= 0.02, "Test churn rate differs too much."
+
+    return X_train, X_test, y_train, y_test
 
 
 def compute_classification_metrics(y_true, y_pred):
@@ -42,8 +70,14 @@ def compute_classification_metrics(y_true, y_pred):
         Dictionary with keys: 'accuracy', 'precision', 'recall', 'f1'.
         Values are floats.
     """
-    # TODO: Compute all four metrics using scikit-learn functions
-    pass
+    metrics = {
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+    }
+
+    return metrics
 
 
 def run_cross_validation(X_train, y_train, n_folds=5, random_state=42):
@@ -59,8 +93,31 @@ def run_cross_validation(X_train, y_train, n_folds=5, random_state=42):
         Dictionary with keys: 'scores' (array of fold scores),
         'mean' (float), 'std' (float).
     """
-    # TODO: Create a LogisticRegression model and run cross_val_score
-    pass
+    model = LogisticRegression(
+        random_state=random_state,
+        max_iter=1000,
+        class_weight="balanced"
+    )
+
+    cv = StratifiedKFold(
+        n_splits=n_folds,
+        shuffle=True,
+        random_state=random_state
+    )
+
+    scores = cross_val_score(
+        model,
+        X_train,
+        y_train,
+        cv=cv,
+        scoring="accuracy"
+    )
+
+    return {
+        "scores": scores,
+        "mean": float(np.mean(scores)),
+        "std": float(np.std(scores)),
+    }
 
 
 if __name__ == "__main__":
